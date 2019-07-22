@@ -1,0 +1,228 @@
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+  <style>
+    body {
+      background-color: #2D3047;
+      color: #1B998B;
+      letter-spacing: 1.5px;
+    }
+
+    .text-display {
+      /* font-size: 25px; */
+      color: #FFFD82;
+    }
+
+    .scoreboard {
+      color: #E84855;
+      padding: 50px;
+    }
+
+    .restart-form {
+      display: none;
+      text-align: center;
+    }
+
+    #tester {
+      display: none;
+      margin: auto;
+    }
+
+    .game-panel {
+      text-align: center;
+    }
+
+    .type-word, .text-display{
+      font-size: 40px;
+      width: 100px;
+      text-align: left;
+      margin: auto;
+    }
+
+  </style>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+
+<body>
+  <div class="scoreboard">
+    Errors: &nbsp<span class="error-counter">0</span>
+    <br/>
+    Timer: &nbsp<span class="timer-tracker">0</span>
+  </div>
+  <div id="tester" style="width:100%;height:450px;"></div>
+  <div class="container">
+    <div class="type-word"></div>
+    <div class="text-display"></div>
+    <form action="/" method="post" class="restart-form">
+      <input class="errors" type="hidden" name="errors" value="">
+      <input class="seconds" type="hidden" name="seconds" value="">
+      <input type="submit" class="btn-success" value="Save & Restart">
+    </form>
+  </div>
+  </div>
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script>
+    $(document).ready(() => {
+
+      let wordsArr = <%- JSON.stringify(words) %>;
+      console.log(wordsArr);
+
+      let timer = 0;
+      setInterval(() => {
+        timer++;
+        $('.timer-tracker').html(timer.toString());
+      }, 1000);
+
+      let levels = [wordsArr[0], wordsArr[1], wordsArr[2]];
+
+      let level = 0;
+      let currentLevel = levels[level];
+      let currentWord = currentLevel[0];
+      let errorCount = 0;
+
+      let pointer = 0;
+      let wordIndex = 0;
+
+      $('.type-word').html(currentWord);
+      currentWord = currentWord.split('');
+      $(window).keydown(event => {
+        if (pointer != currentWord.length) {
+          if (event.keyCode >= 65 && event.keyCode <= 90) {
+            if (currentWord[pointer] != event.key) {
+              errorCount++;
+              $('.error-counter').html(errorCount);
+              $('body').css("background-color", "#E84855");
+              setTimeout(() => {
+                $('body').css("background-color", "#2D3047");
+              }, 100);
+            } else if (event.key != "Shift") {
+              console.log(event.key);
+              $('<span>', {
+                id: event.key,
+                text: event.key
+              }).appendTo('.text-display');
+              pointer++;
+            }
+          }
+        } else if (event.keyCode == 13) {
+          nextWord();
+        }
+      });
+
+      const showGraph = (errorCount, seconds) => {
+
+        $('#tester').show();
+        const scoresArray = <%- JSON.stringify(scores) %>;
+
+        let xValues = [];
+        let yValues = [];
+
+        let yValuesSeconds = [];
+        let indexTracker = 1;
+
+        scoresArray.forEach((score, index) => {
+          xValues.push(index+1);
+          yValues.push(score.errorCount);
+          yValuesSeconds.push(score.seconds);
+          indexTracker++;
+        })
+
+        // Show the results from the current game as well.
+        xValues.push(indexTracker);
+        yValues.push(errorCount.toString());
+        yValuesSeconds.push(seconds.toString());
+
+        console.log(xValues);
+        console.log(yValues);
+        console.log(yValuesSeconds);
+
+        TESTER = document.getElementById('tester');
+        var errors = {
+          x: xValues,
+          y: yValues,
+          mode: 'lines+markers',
+          name: 'errors'
+        };
+
+        var seconds = {
+          x: xValues,
+          y: yValuesSeconds,
+          mode: 'lines+markers',
+          name: 'seconds'
+        };
+
+        var data = [errors, seconds];
+
+        var layout = {
+          colorway : ['#f3cec9', '#e7a4b6', '#cd7eaf', '#a262a9', '#6f4d96', '#3d3b72', '#182844'],
+          title: 'Progress Tracker',
+          xaxis: {
+            tickmode: "linear",
+            tick0: 1,
+            dtick: 1
+          }
+        };
+
+        Plotly.newPlot(TESTER, data, layout);
+
+      }
+
+
+      const nextWord = () => {
+        if (wordIndex == currentLevel.length - 1) {
+          wordIndex = 0;
+          pointer = 0;
+          if (level + 1 == levels.length) {
+            endGame();
+          } else {
+            level++;
+            currentLevel = levels[level];
+            currentWord = currentLevel[wordIndex];
+            $('.type-word').html(currentWord);
+            $('.text-display').html('');
+            currentWord = currentWord.split('');
+          }
+        } else {
+          wordIndex++;
+          currentWord = currentLevel[wordIndex];
+          console.log(currentWord);
+          pointer = 0;
+          $('.type-word').html(currentWord);
+          $('.text-display').html('');
+          currentWord = currentWord.split('');
+        }
+      }
+
+      const endGame = () => {
+        $('.scoreboard').hide();
+        let errorString = "No of errors: " + errorCount;
+        let timeElapsedString = "Time elapsed: " + timer;
+        $('.type-word').css({
+          'width': "100%",
+          'text-align': "center",
+          'font-size': '20px'
+        })
+        $('.text-display').css({
+          'width': "100%",
+          'text-align': "center",
+          'font-size': '20px'
+        })
+        $('.type-word').html(errorString);
+        $('.text-display').html(timeElapsedString);
+        $('.restart-form').show();
+        $('.errors').val(errorCount);
+        $('.seconds').val(timer);
+        showGraph(errorCount, timer);
+      }
+
+    })
+  </script>
+</body>
+
+</html>
